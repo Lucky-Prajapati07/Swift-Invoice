@@ -16,7 +16,7 @@ Swift-Invoice is a multi-tenant SaaS invoicing and business operations platform 
 - Public shareable invoice links via token
 - Transaction tracking (income/expense)
 - Reports with filters and CSV/PDF export
-- Business logo upload API (JPG/PNG up to 5 MB)
+- Business logo upload API (JPG/PNG up to 3 MB)
 - Admin console for users, subscriptions, pricing, notifications, and analytics
 
 ## Tech Stack
@@ -53,7 +53,7 @@ lib/
   db.ts             # Neon SQL client with retry/backoff
   mailer.ts         # SMTP OTP email delivery
 scripts/            # ordered SQL migrations (001..021)
-public/uploads/     # uploaded assets (e.g., logos)
+public/uploads/     # legacy uploaded assets
 ```
 
 ## Prerequisites
@@ -94,6 +94,12 @@ RAZORPAY_KEY_SECRET="xxxxxxxx"
 RAZORPAY_WEBHOOK_SECRET="whsec_xxxxx"
 APP_BASE_URL="http://localhost:3000"
 # or NEXTAUTH_URL="http://localhost:3000"
+```
+
+Required for production logo uploads (recommended):
+
+```env
+BLOB_READ_WRITE_TOKEN="vercel_blob_rw_xxxxx"
 ```
 
 Notes:
@@ -178,7 +184,7 @@ From `package.json`:
 - `POST /api/auth/[...nextauth]` - NextAuth handler
 - `GET /api/invoices/[id]/pdf` - generate/download invoice PDF
 - `GET /api/reports/export` - export reports (`format=csv|pdf`)
-- `POST /api/upload/logo` - upload business logo (JPG/PNG, max 5 MB)
+- `POST /api/upload/logo` - upload business logo (JPG/PNG, max 3 MB)
 - `POST /api/payments/razorpay/webhook` - Razorpay webhook receiver
 
 ## Subscription and Billing Flow
@@ -201,13 +207,15 @@ Admin module includes:
 
 ## File Upload Behavior
 
-Business logos are stored under `public/uploads/logos`.
+Business logos are uploaded directly from the browser to Vercel Blob and the returned public URL is saved in `businesses.logo_url`.
+
+This flow requires `BLOB_READ_WRITE_TOKEN` to be configured in the Vercel project.
 
 Validation:
 
 - Allowed MIME types: `image/png`, `image/jpeg`, `image/jpg`
-- Max upload size: 5 MB
-- Returned URL format: `/uploads/logos/<generated-file>`
+- Max upload size: 3 MB
+- Stored value format: public Blob URL
 
 ## Security Notes
 
@@ -224,7 +232,7 @@ Validation:
 - Ensure webhook endpoint is publicly reachable:
   - `https://<your-domain>/api/payments/razorpay/webhook`
 - Configure `RAZORPAY_WEBHOOK_SECRET` from Razorpay dashboard.
-- Ensure persistent writable storage strategy for uploaded files if deploying to ephemeral environments.
+- Logo uploads do not rely on writable filesystem storage and require a Vercel Blob store plus `BLOB_READ_WRITE_TOKEN`.
 
 ## Troubleshooting
 

@@ -1792,7 +1792,7 @@ export async function updateBusinessSettingsAction(formData: FormData) {
       phone = ${phone},
       email = ${email},
       gst_number = ${gstNumber},
-      logo_url = ${logoUrl},
+      logo_url = COALESCE(${logoUrl}, logo_url),
       bank_account_number = ${bankAccountNumber},
       bank_ifsc = ${bankIfsc},
       bank_name = ${bankName},

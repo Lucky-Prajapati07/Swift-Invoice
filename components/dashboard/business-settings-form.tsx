@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import Image from "next/image"
+import { useEffect, useState } from "react"
+import { upload } from "@vercel/blob/client"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -50,6 +50,14 @@ export function BusinessSettingsForm({ action, business }: BusinessSettingsFormP
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState("")
 
+  useEffect(() => {
+    return () => {
+      if (logoUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(logoUrl)
+      }
+    }
+  }, [logoUrl])
+
   const handleLogoUpload = async (file: File | null) => {
     if (!file) return
 
@@ -61,31 +69,28 @@ export function BusinessSettingsForm({ action, business }: BusinessSettingsFormP
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError("File size should be under 5MB")
+    if (file.size > 3 * 1024 * 1024) {
+      setUploadError("File size should be under 3MB")
       return
     }
 
+    const previousLogoUrl = logoUrl
+    const previewUrl = URL.createObjectURL(file)
+
     try {
       setIsUploading(true)
-      const data = new FormData()
-      data.append("file", file)
+      setLogoUrl(previewUrl)
 
-      const response = await fetch("/api/upload/logo", {
-        method: "POST",
-        body: data,
+      const blob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload/logo",
+        clientPayload: JSON.stringify({ fileType: file.type }),
       })
 
-      const result = (await response.json()) as { logoUrl?: string; error?: string }
-
-      if (!response.ok || !result.logoUrl) {
-        setUploadError(result.error || "Failed to upload logo")
-        return
-      }
-
-      setLogoUrl(result.logoUrl)
-    } catch {
-      setUploadError("Unable to upload logo right now")
+      setLogoUrl(blob.url)
+    } catch (error) {
+      setLogoUrl(previousLogoUrl)
+      setUploadError(error instanceof Error ? error.message : "Unable to upload logo right now")
     } finally {
       setIsUploading(false)
     }
@@ -93,8 +98,6 @@ export function BusinessSettingsForm({ action, business }: BusinessSettingsFormP
 
   return (
     <form action={action} className="grid gap-4 md:grid-cols-2">
-      <input type="hidden" name="logoUrl" value={logoUrl} />
-
       <div className="space-y-1 md:col-span-2">
         <Label htmlFor="businessName">Business Name (Legal + Display)</Label>
         <Input id="businessName" name="businessName" required defaultValue={business?.name || ""} />
@@ -166,7 +169,7 @@ export function BusinessSettingsForm({ action, business }: BusinessSettingsFormP
           {isUploading && <span className="text-sm text-muted-foreground">Uploading logo...</span>}
           {logoUrl && (
             <div className="relative h-14 w-14 overflow-hidden rounded border bg-background">
-              <Image src={logoUrl} alt="Business logo" fill className="object-contain" />
+              <img src={logoUrl} alt="Business logo" className="h-full w-full object-contain" />
             </div>
           )}
         </div>
